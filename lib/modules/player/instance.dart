@@ -443,7 +443,11 @@ class BBPlayer {
       if (music.localPath.isNotEmpty) {
         await audio.setFilePath(music.localPath);
       } else {
-        await audio.setAudioSource(BBMusicSource(music));
+        try {
+          await audio.setAudioSource(BBMusicSource(music));
+        } catch (error) {
+          BotToast.showText(text: "播放失败：$error");
+        }
       }
     }
 

@@ -213,3 +213,10 @@ class BiliMusicDetail extends MusicDetail {
     );
   }
 }
+
+class BiliBNut {
+  final String bNut;
+  final String b3;
+
+  const BiliBNut({required this.bNut, required this.b3});
+}
