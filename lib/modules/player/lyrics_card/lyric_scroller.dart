@@ -47,14 +47,15 @@ class LyricsScrollerState extends State<LyricsScroller> with SingleTickerProvide
   int currentTime = 0;
   late LyricsReaderModel lyricModel;
   var lyricUI = UINetease(defaultSize: 16);
+  final List<StreamSubscription?> _subscriptions = [];
 
   @override
   void initState() {
     super.initState();
 
-    eventBus.on<ScrollLyric>().listen((event) {
+    _subscriptions.add(eventBus.on<ScrollLyric>().listen((event) {
       doScroll();
-    });
+    }));
 
     // 初始化一个空的 lyricModel
     lyricModel = LyricsModelBuilder.create().getModel();
@@ -67,6 +68,9 @@ class LyricsScrollerState extends State<LyricsScroller> with SingleTickerProvide
   @override
   void dispose() {
     resetState();
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
     super.dispose();
   }
 

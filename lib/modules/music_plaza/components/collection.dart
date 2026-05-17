@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:math";
 
 import "package:bobomusic/components/empty_page/empty_page.dart";
@@ -26,18 +27,29 @@ class Collection extends StatefulWidget {
 
 class CollectionViewState extends State<Collection> {
   List<Widget> singerList = [];
+  final List<StreamSubscription?> _subscriptions = [];
 
   @override
   void initState() {
     super.initState();
 
-    eventBus.on<RefreshCollectionList>().listen((event) {
+    _subscriptions.add(eventBus.on<RefreshCollectionList>().listen((event) {
       _loadSingerList();
-    });
+    }));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSingerList();
+      if (context.mounted) {
+        _loadSingerList();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
+    super.dispose();
   }
 
   Future<void> _loadSingerList() async {

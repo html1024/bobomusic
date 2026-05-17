@@ -2,14 +2,16 @@ import "dart:math";
 import "package:flutter/material.dart";
 
 class VinylRecordWidget extends StatefulWidget {
-  final String albumCoverUrl;
-  final String errorAlbumCoverUrl;
+  final ImageInfo? imageInfo;
+  final ImageProvider? imageProvider;
+  final String errorCoverUrl;
   final bool isPlaying;
 
   const VinylRecordWidget({
     super.key,
-    required this.albumCoverUrl,
-    required this.errorAlbumCoverUrl,
+    required this.imageInfo,
+    required this.imageProvider,
+    required this.errorCoverUrl,
     required this.isPlaying,
   });
 
@@ -25,7 +27,6 @@ class VinylRecordWidgetState extends State<VinylRecordWidget>
   ImageStream? _imageStream;
   ImageInfo? _imageInfo;
   late ImageStreamListener _imageStreamListener;
-  ImageInfo? _localImageInfo;
 
   @override
   void initState() {
@@ -44,38 +45,8 @@ class VinylRecordWidgetState extends State<VinylRecordWidget>
       _animationController.repeat(reverse: false);
     }
 
-    _imageProvider = NetworkImage(widget.albumCoverUrl);
-    _imageStreamListener = ImageStreamListener(
-      (ImageInfo info, bool synchronousCall) {
-        setState(() {
-          _imageInfo = info;
-        });
-      },
-      onError: (dynamic exception, StackTrace? stackTrace) {
-        print("Image loading error: $exception");
-        _loadLocalImage();
-      },
-    );
-    _loadImage();
-    _loadLocalImage();
-  }
-
-  void _loadImage() {
-    _imageStream = _imageProvider?.resolve(const ImageConfiguration());
-    _imageStream?.addListener(_imageStreamListener);
-  }
-
-  void _loadLocalImage() {
-    final ImageProvider localImageProvider = AssetImage(widget.errorAlbumCoverUrl);
-    localImageProvider.resolve(const ImageConfiguration()).addListener(
-      ImageStreamListener(
-        (ImageInfo info, bool synchronousCall) {
-          setState(() {
-            _localImageInfo = info;
-          });
-        },
-      ),
-    );
+    _imageProvider = widget.imageProvider;
+    _imageInfo = widget.imageInfo;
   }
 
   @override
@@ -88,12 +59,13 @@ class VinylRecordWidgetState extends State<VinylRecordWidget>
         _animationController.stop();
       }
     }
-    if (widget.albumCoverUrl != oldWidget.albumCoverUrl) {
-      _imageProvider = NetworkImage(widget.albumCoverUrl);
-      _loadImage();
+
+    if (widget.imageInfo != oldWidget.imageInfo) {
+      _imageInfo = widget.imageInfo;
     }
-    if (widget.errorAlbumCoverUrl != oldWidget.errorAlbumCoverUrl) {
-      _loadLocalImage();
+
+    if (widget.imageProvider != oldWidget.imageProvider) {
+      _imageProvider = widget.imageProvider;
     }
   }
 
@@ -131,14 +103,14 @@ class VinylRecordWidgetState extends State<VinylRecordWidget>
                         blurRadius: 5,
                       ),
                     ],
-                    borderRadius: BorderRadius.all(Radius.circular(4)),
+                    borderRadius: const BorderRadius.all(Radius.circular(4)),
                     image: _imageInfo != null
                       ? DecorationImage(
                           image: _imageProvider!,
                           fit: BoxFit.cover,
                         )
                       : DecorationImage(
-                          image: AssetImage(widget.errorAlbumCoverUrl),
+                          image: AssetImage(widget.errorCoverUrl),
                           fit: BoxFit.cover,
                         ),
                   ),
@@ -153,9 +125,8 @@ class VinylRecordWidgetState extends State<VinylRecordWidget>
                         size: Size(recordSize, recordSize),
                         painter: VinylRecordPainter(
                           imageInfo: _imageInfo,
-                          localImageInfo: _localImageInfo,
                           albumCoverSize: Size(containerSize, containerSize),
-                          localImagePath: widget.errorAlbumCoverUrl,
+                          localImagePath: widget.errorCoverUrl,
                         ),
                       ),
                     ),
@@ -172,13 +143,11 @@ class VinylRecordWidgetState extends State<VinylRecordWidget>
 
 class VinylRecordPainter extends CustomPainter {
   final ImageInfo? imageInfo;
-  final ImageInfo? localImageInfo;
   final Size albumCoverSize;
   final String localImagePath;
 
   VinylRecordPainter({
     required this.imageInfo,
-    required this.localImageInfo,
     required this.albumCoverSize,
     required this.localImagePath,
   });
@@ -246,7 +215,8 @@ class VinylRecordPainter extends CustomPainter {
     final path = Path()..addOval(coverRect);
     canvas.clipPath(path);
 
-    final ImageInfo? targetImage = imageInfo ?? localImageInfo;
+    final ImageInfo? targetImage = imageInfo;
+
     if (targetImage != null) {
       final sourceSize = Size(
         targetImage.image.width.toDouble(),
@@ -262,7 +232,6 @@ class VinylRecordPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant VinylRecordPainter oldDelegate) {
-    return oldDelegate.imageInfo != imageInfo ||
-        oldDelegate.localImageInfo != localImageInfo;
+    return oldDelegate.imageInfo != imageInfo;
   }
 }

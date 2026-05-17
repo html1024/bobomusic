@@ -20,7 +20,7 @@ class ScanLocalListWithoutLoading {}
 class ShowLocalAction {}
 class RefreshTabList {}
 class RefreshCollectionList {}
-class RefresPlayerCard {}
+class RefreshPlayerCard {}
 class ScrollLyric {}
 
 class ThemeColorChanged {

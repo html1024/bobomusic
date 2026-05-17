@@ -16,6 +16,7 @@ import "package:bobomusic/modules/player/player_card/current_list.dart";
 import "package:bobomusic/modules/player/player_card/vinyl_record.dart";
 import "package:bobomusic/modules/player/utils.dart";
 import "package:bobomusic/origin_sdk/origin_types.dart";
+import "package:bobomusic/origin_sdk/service.dart";
 import "package:bobomusic/utils/check_music_local_repeat.dart";
 import "package:bot_toast/bot_toast.dart";
 import "package:flutter/cupertino.dart";
@@ -42,27 +43,28 @@ class PlayerCard extends StatefulWidget {
 
 class PlayerCardState extends State<PlayerCard> {
   bool isLike = false;
-  String coverUrl = Covers.getRandomCover();
+  String coverUrl = "";
   String errorCoverUrl = Covers.getLocalCover();
   ImageProvider? _imageProvider;
   ImageStream? _imageStream;
   ImageInfo? _imageInfo;
   late PageController _pageController;
   int _currentPage = 0;
+  final List<StreamSubscription?> _subscriptions = [];
 
   @override
   void initState() {
     super.initState();
-    _imageProvider = NetworkImage(coverUrl);
     _pageController = PageController(initialPage: _currentPage);
 
-    eventBus.on<RefresPlayerCard>().listen((event) {
+    _subscriptions.add(eventBus.on<RefreshPlayerCard>().listen((event) {
+      _initCoverAndLyric();
       _initState();
-    });
+    }));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initCoverAndLyric();
       _initState();
-      _loadImage();
     });
   }
 
@@ -85,8 +87,77 @@ class PlayerCardState extends State<PlayerCard> {
     }
   }
 
+  Future<void> _initCoverAndLyric() async {
+    if (!mounted) return;
+
+    final current = Provider.of<PlayerModel>(context, listen: false).current;
+    if (current == null) return;
+
+    final p = SearchParams(keyword: current.name, page: 1, pageSize: 10);
+
+    if (current.lyric != "" && current.cover != "") {
+      setState(() {
+        final albumcover = current.cover;
+        _imageProvider = NetworkImage(albumcover);
+        _loadImage();
+      });
+      return;
+    }
+
+    const maxRetries = 3;
+    int attempt = 0;
+    dynamic lastError;
+
+    while (attempt < maxRetries) {
+      attempt++;
+      try {
+        final value = await lyricService.searchMusic(p, silent: true);
+        if (value != null && value.list.isNotEmpty) {
+          final first = value.list.first;
+          final albumcover = first.albumcover;
+
+          if (!mounted) return;
+          setState(() {
+            _imageProvider = NetworkImage(albumcover);
+            _loadImage();
+          });
+
+          var musicItem = current.copyWith(cover: first.albumcover);
+          await db.update(current.orderName, musicItem2Row(music: musicItem));
+
+          if (current.lyric == "" && mounted) {
+            try {
+              final lyric = await lyricService.searchLyric(first.songmid);
+              if (lyric != null && mounted) {
+                musicItem = musicItem.copyWith(lyric: lyric.lyric);
+                final id = await db.update(current.orderName, musicItem2Row(music: musicItem));
+                if (id > -1) {
+                  eventBus.fire(ScrollLyric());
+                }
+              }
+            } catch (e) {
+              print("歌词搜索失败: $e");
+            }
+          }
+          return;
+        }
+      } catch (error) {
+        lastError = error;
+        print("_initCoverAndLyric 第$attempt次尝试失败: $error");
+        if (attempt < maxRetries) {
+          await Future.delayed(Duration(milliseconds: 500 * attempt));
+        }
+      }
+    }
+
+    print("_initCoverAndLyric 重试$maxRetries次后仍然失败: $lastError");
+  }
+
   @override
   void dispose() {
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
     _imageStream?.removeListener(
       ImageStreamListener(
         (ImageInfo info, bool synchronousCall) {},
@@ -140,8 +211,9 @@ class PlayerCardState extends State<PlayerCard> {
       child: ClipRRect(
         borderRadius: const BorderRadius.all(Radius.circular(10)),
         child: VinylRecordWidget(
-          albumCoverUrl: coverUrl,
-          errorAlbumCoverUrl: errorCoverUrl,
+          imageInfo: _imageInfo,
+          imageProvider: _imageProvider,
+          errorCoverUrl: errorCoverUrl,
           isPlaying: Provider.of<PlayerModel>(context, listen: false).isPlaying,
         ),
       ),
@@ -428,7 +500,7 @@ class PlayerCardState extends State<PlayerCard> {
           children: [
             Positioned.fill(
               child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                 child: _imageInfo != null
                   ? Image(
                       image: _imageProvider!,
@@ -440,10 +512,15 @@ class PlayerCardState extends State<PlayerCard> {
                     ),
               ),
             ),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+              ),
+            ),
             Container(
               width: screenSize.width,
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor.withOpacity(0.5),
+                color: Colors.white.withOpacity(0.2),
               ),
               padding: EdgeInsets.only(bottom: isLandscape ? 30 : 0),
               child: Column(

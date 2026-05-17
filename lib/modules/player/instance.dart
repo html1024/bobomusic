@@ -3,6 +3,7 @@ import "dart:convert";
 
 import "package:bobomusic/constants/cache_key.dart";
 import "package:bobomusic/db/db.dart";
+import "package:bobomusic/event_bus/event_bus.dart";
 import "package:bobomusic/modules/music_order/utils.dart";
 import "package:bobomusic/modules/player/const.dart";
 import "package:bobomusic/modules/player/source.dart";
@@ -37,8 +38,6 @@ class BBPlayer {
   MusicItem? current;
   // 待播放列表
   final List<MusicItem> playerList = [];
-  // 已播放，用于计算随机
-  final List<String> _playerHistory = [];
   // 播放模式
   PlayerMode playerMode = PlayerMode.listLoop;
 
@@ -139,6 +138,7 @@ class BBPlayer {
       await db.update(current!.orderName, musicItem2Row(music: current!.copyWith(duration: audio.duration!.inSeconds)));
     }
 
+    eventBus.fire(RefreshPlayerCard());
     _updateLocalStorage();
   }
 

@@ -26,20 +26,33 @@ class MusicListCommon extends StatefulWidget {
 
 class MusicListCommonState extends State<MusicListCommon> {
   List<MusicItem> musicList = [];
+  final List<StreamSubscription?> _subscriptions = [];
 
   @override
   void initState() {
     super.initState();
     _loadData();
 
-    eventBus.on<RefreshMusicList>().listen((event) {
-      _loadData();
-      RefreshMusicList(tabName: "");
-    });
+    _subscriptions.add(eventBus.on<RefreshMusicList>().listen((event) {
+      if (mounted) {
+        _loadData();
+        RefreshMusicList(tabName: "");
+      }
+    }));
 
-    eventBus.on<ClearMusicList>().listen((event) {
-      _clearData();
-    });
+    _subscriptions.add(eventBus.on<ClearMusicList>().listen((event) {
+      if (mounted) {
+        _clearData();
+      }
+    }));
+  }
+
+  @override
+  void dispose() {
+    for (var subscription in _subscriptions) {
+      subscription?.cancel();
+    }
+    super.dispose();
   }
 
   Future<void> _loadData({bool? forceLoading = false}) async {

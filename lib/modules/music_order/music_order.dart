@@ -1,5 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
+import "dart:async";
+
 import "package:bobomusic/components/custom_dialog/custom_dialog.dart";
 import "package:bobomusic/components/delete_orders/delete_orders.dart";
 import "package:bobomusic/modules/music_order/components/top_bar.dart";
@@ -54,12 +56,13 @@ class UserMusicOrderView extends State<MusicOrderView> with AutomaticKeepAliveCl
     Menus.editOrder: Icons.edit_note,
     Menus.deleteOrders: Icons.delete_forever,
   };
+  final List<StreamSubscription?> _subscriptions = [];
 
   @override
   void initState() {
     super.initState();
 
-    eventBus.on<ShowLocalAction>().listen((event) {
+    _subscriptions.add(eventBus.on<ShowLocalAction>().listen((event) {
       showDialog(
         context: context,
         builder: (ctx) => Container(
@@ -92,15 +95,23 @@ class UserMusicOrderView extends State<MusicOrderView> with AutomaticKeepAliveCl
           ),
         )
       );
-    });
-    eventBus.on<ShowDeleteListDialog>().listen((event) {
+    }));
+    _subscriptions.add(eventBus.on<ShowDeleteListDialog>().listen((event) {
       deleteList(event.tabName);
-    });
-    eventBus.on<RefreshTabList>().listen((event) {
+    }));
+    _subscriptions.add(eventBus.on<RefreshTabList>().listen((event) {
       _loadData();
-    });
+    }));
 
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
+    super.dispose();
   }
 
   Future<void> refreshTabList() async {

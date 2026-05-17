@@ -32,21 +32,32 @@ class MusicLocal extends StatefulWidget {
 
 class MusicLocalState extends State<MusicLocal> {
   List<MusicItem> musicList = [];
+  final List<StreamSubscription?> _subscriptions = [];
 
   @override
   void initState() {
     super.initState();
     _loadData();
 
-    eventBus.on<ClearMusicList>().listen((event) {
+    _subscriptions.add(eventBus.on<ClearMusicList>().listen((event) {
       _clearData();
-    });
-    eventBus.on<ScanLocalList>().listen((event) {
+    }));
+
+    _subscriptions.add(eventBus.on<ScanLocalList>().listen((event) {
       scanLocalMusics();
-    });
-    eventBus.on<ScanLocalListWithoutLoading>().listen((event) {
+    }));
+
+    _subscriptions.add(eventBus.on<ScanLocalListWithoutLoading>().listen((event) {
       scanLocalMusics0();
-    });
+    }));
+  }
+
+  @override
+  void dispose() {
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
+    super.dispose();
   }
 
   Future<void> _loadData() async {

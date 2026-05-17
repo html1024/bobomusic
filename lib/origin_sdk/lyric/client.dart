@@ -133,43 +133,65 @@ class LyricData {
 }
 
 class LyricClient {
-  final dio = Dio();
+  final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10)));
   final String baseURL = "https://api.timelessq.com/music/tencent/";
 
-  Future<SongData?> searchMusic(SearchParams seachParams) async {
-    EasyLoading.show(maskType: EasyLoadingMaskType.black);
-
-    final response = await dio.get("$baseURL/search?keyword=${seachParams.keyword}&page=${seachParams.page}&pageSize=${seachParams.pageSize}");
-
-    if (response.statusCode == 200) {
-      EasyLoading.dismiss();
-      final data = response.data["data"];
-
-      if(data["total"] == 0) {
-        BotToast.showText(text: "没有歌曲，歌词服务商可能出错了");
-        return null;
-      } else {
-        return SongData.fromJson(data);
+  Future<SongData?> searchMusic(SearchParams seachParams, {bool silent = false}) async {
+    try {
+      if(!silent) {
+        EasyLoading.show(maskType: EasyLoadingMaskType.black);
       }
-    } else {
+
+      final response = await dio.get("$baseURL/search?keyword=${seachParams.keyword}&page=${seachParams.page}&pageSize=${seachParams.pageSize}");
+
+      if (response.statusCode == 200) {
+        EasyLoading.dismiss();
+        final data = response.data["data"];
+
+        if(data["total"] == 0 && !silent) {
+          BotToast.showText(text: "没有歌曲，歌词服务商可能出错了");
+          return null;
+        } else {
+          return SongData.fromJson(data);
+        }
+      } else {
+        EasyLoading.dismiss();
+
+        if(!silent) {
+          BotToast.showText(text: "歌曲信息查询失败，请检查网络");
+        }
+
+        return null;
+      }
+    } catch (error) {
       EasyLoading.dismiss();
-      BotToast.showText(text: "歌曲查询失败");
+
+      if(!silent) {
+        BotToast.showText(text: "歌曲信息查询失败，请检查网络");
+      }
+
       return null;
     }
   }
 
   Future<LyricData?> searchLyric(String songmid) async {
-    EasyLoading.show(maskType: EasyLoadingMaskType.black);
+    try {
+      EasyLoading.show(maskType: EasyLoadingMaskType.black);
 
-    final response = await dio.get("$baseURL/lyric?songmid=$songmid");
+      final response = await dio.get("$baseURL/lyric?songmid=$songmid");
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        EasyLoading.dismiss();
+        final data = response.data["data"];
+        return LyricData.fromJson(data);
+      } else {
+        EasyLoading.dismiss();
+        BotToast.showText(text: "歌词预览失败，请检查网络");
+        return null;
+      }
+    } catch (e) {
       EasyLoading.dismiss();
-      final data = response.data["data"];
-      return LyricData.fromJson(data);
-    } else {
-      EasyLoading.dismiss();
-      BotToast.showText(text: "歌词预览失败");
+      BotToast.showText(text: "歌词预览失败，请检查网络");
       return null;
     }
   }
