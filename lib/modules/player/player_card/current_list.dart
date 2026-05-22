@@ -22,12 +22,48 @@ class CurrentListState extends State<CurrentList> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentSong();
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToCurrentSong() {
+    final player = Provider.of<PlayerModel>(context, listen: false);
+    if (player.current == null) return;
+
+    // 找到当前播放歌曲在列表中的索引
+    int? targetIndex;
+    for (int i = 0; i < widget.musicList.length; i++) {
+      final item = widget.musicList[i];
+      // 优先通过 playId 匹配，再通过 id 匹配
+      if (item.playId.isNotEmpty && player.current!.playId.isNotEmpty && item.playId == player.current!.playId) {
+        targetIndex = i;
+        break;
+      } else if (item.id == player.current!.id) {
+        targetIndex = i;
+        break;
+      }
+    }
+
+    // 如果找到目标索引，则滚动到该位置
+    if (targetIndex != null && _scrollController.hasClients) {
+      // 每首歌大约 60 像素高度（估算），如果更准确的话可以通过 GlobalKey 计算
+      const double itemHeight = 60;
+      final double scrollOffset = targetIndex * itemHeight;
+
+      // 滚动到目标位置
+      _scrollController.animateTo(
+        scrollOffset.clamp(0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
@@ -88,14 +124,26 @@ class CurrentListState extends State<CurrentList> {
     return SizedBox(
       height: h,
       child: ListView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.only(bottom: 20),
         itemCount: widget.musicList.length,
         itemBuilder: (context, index) {
           final item = widget.musicList[index];
-          return MusicListTile(
-            item,
-            showAddIcon: false,
-            onMore: () => showItemSheet(context, item, player),
+          // 检查是否是当前播放的歌曲
+          final isCurrentPlaying = (item.playId.isNotEmpty && player.current?.playId.isNotEmpty == true && item.playId == player.current?.playId) ||
+              (item.id == player.current?.id);
+
+          return Container(
+            decoration: isCurrentPlaying
+                ? BoxDecoration(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  )
+                : null,
+            child: MusicListTile(
+              item,
+              showAddIcon: false,
+              onMore: () => showItemSheet(context, item, player),
+            ),
           );
         },
       ),
