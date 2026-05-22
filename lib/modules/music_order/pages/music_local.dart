@@ -33,6 +33,7 @@ class MusicLocal extends StatefulWidget {
 class MusicLocalState extends State<MusicLocal> {
   List<MusicItem> musicList = [];
   final List<StreamSubscription?> _subscriptions = [];
+  Timer? _scanDelayTimer;
 
   @override
   void initState() {
@@ -54,6 +55,7 @@ class MusicLocalState extends State<MusicLocal> {
 
   @override
   void dispose() {
+    _scanDelayTimer?.cancel();
     for (var sub in _subscriptions) {
       sub?.cancel();
     }
@@ -146,7 +148,7 @@ class MusicLocalState extends State<MusicLocal> {
 
     EasyLoading.show(maskType: EasyLoadingMaskType.black);
 
-    Timer(const Duration(seconds: 1), () async {
+    _scanDelayTimer = Timer(const Duration(seconds: 1), () async {
       await scanLocalMusics0();
       EasyLoading.dismiss();
     });

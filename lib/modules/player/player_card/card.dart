@@ -652,6 +652,7 @@ class _PlayerProgressState extends State<PlayerProgress> {
   double _value = 0;
   bool _isChanged = false;
   List<StreamSubscription<Duration>?> listens = [];
+  Timer? _seekTimer;
 
   @override
   void initState() {
@@ -678,6 +679,7 @@ class _PlayerProgressState extends State<PlayerProgress> {
 
   @override
   void dispose() {
+    _seekTimer?.cancel();
     for (final listen in listens) {
       listen?.cancel();
     }
@@ -715,8 +717,8 @@ class _PlayerProgressState extends State<PlayerProgress> {
                 int v = (value * total).toInt();
                 player.seek(Duration(seconds: v));
 
-                // 使得歌词滚动到正确位置
-                Timer(const Duration(seconds: 1), () {
+                _seekTimer?.cancel();
+                _seekTimer = Timer(const Duration(seconds: 1), () {
                   if (player.isPlaying) {
                     player.pause();
                     player.play();

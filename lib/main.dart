@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:io";
 
 import "package:audio_service/audio_service.dart";
@@ -119,18 +120,17 @@ class MyApp extends StatefulWidget {
 
 class MyAppState extends State<MyApp> {
   late ThemeData _currentTheme;
+  StreamSubscription? _themeColorSubscription;
 
   @override
   void initState() {
     super.initState();
-    // 初始化播放器
     Provider.of<PlayerModel>(context, listen: false).init(
       playerHandler: widget.playerHandler,
       playerService: widget.playerService,
     );
     _currentTheme = widget.initialTheme;
-    // 监听主题色变更事件
-    eventBus.on<ThemeColorChanged>().listen((event) {
+    _themeColorSubscription = eventBus.on<ThemeColorChanged>().listen((event) {
       setState(() {
         primaryColor = event.newColor;
         _currentTheme = _currentTheme.copyWith(
@@ -145,6 +145,12 @@ class MyAppState extends State<MyApp> {
     });
 
     Permissions.requestNotificationPermission();
+  }
+
+  @override
+  void dispose() {
+    _themeColorSubscription?.cancel();
+    super.dispose();
   }
 
   @override

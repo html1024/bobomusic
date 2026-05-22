@@ -9,7 +9,7 @@ import "package:bobomusic/origin_sdk/origin_types.dart";
 class AudioPlayerHandler extends BaseAudioHandler {
   final BBPlayer player = BBPlayer();
   late PlaybackEvent _audioEvent;
-  // 移除手动维护的 _playing 变量，直接使用播放器状态
+  final List<StreamSubscription?> _subscriptions = [];
 
   double get _speed => player.audio.speed;
   MusicItem? get current => player.current;
@@ -20,22 +20,29 @@ class AudioPlayerHandler extends BaseAudioHandler {
   }
 
   AudioPlayerHandler() {
-    player.audio.playbackEventStream.listen((event) {
+    _subscriptions.add(player.audio.playbackEventStream.listen((event) {
       _audioEvent = event;
-    });
-    player.audio.playerStateStream.listen((state) {
+    }));
+    _subscriptions.add(player.audio.playerStateStream.listen((state) {
       _updateMediaItem();
-      _broadcastState(); // 直接更新状态，无需延迟
-    });
+      _broadcastState();
+    }));
     _updateMediaItem();
-    player.audio.positionStream.listen((position) {
+    _subscriptions.add(player.audio.positionStream.listen((position) {
       _updatePosition();
-    });
-    player.audio.durationStream.listen((duration) {
+    }));
+    _subscriptions.add(player.audio.durationStream.listen((duration) {
       if (mediaItem.value != null) {
         mediaItem.add(mediaItem.value!.copyWith(duration: duration));
       }
-    });
+    }));
+  }
+
+  Future<void> disposeHandler() async {
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
+    player.dispose();
   }
 
   @override

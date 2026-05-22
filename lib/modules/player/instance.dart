@@ -23,22 +23,17 @@ final _storageKeyPlayerMode = CacheKey.playerMode;
 final _storageKeyPosition = CacheKey.playerPosition;
 
 class BBPlayer {
-  // 计时器
   Timer? _timer;
-  // 歌曲是否加载
   bool isLoading = false;
-  // 是否正在播放
+  final List<StreamSubscription?> _subscriptions = [];
+
   bool get isPlaying {
     return audio.playing;
   }
 
-  // 播放器实例
   final audio = AudioPlayer();
-  // 当前歌曲
   MusicItem? current;
-  // 待播放列表
   final List<MusicItem> playerList = [];
-  // 播放模式
   PlayerMode playerMode = PlayerMode.listLoop;
 
   late AutoCloseMusic autoClose;
@@ -50,8 +45,7 @@ class BBPlayer {
     await _initLocalStorage();
     var throttleEndNext = Throttle(const Duration(seconds: 1));
 
-    // 监听播放状态
-    audio.playerStateStream.listen((state) {
+    _subscriptions.add(audio.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.loading) {
         isLoading = true;
       }
@@ -59,7 +53,6 @@ class BBPlayer {
         isLoading = false;
       }
       if (state.processingState == ProcessingState.completed) {
-        // 会重复触发，添加节流方法
         throttleEndNext.call(() {
           if (autoClose.isPlayDoneAutoClose) {
             autoClose.isPlayDoneAutoClose = false;
@@ -68,24 +61,25 @@ class BBPlayer {
           return endNext();
         });
       }
-      // notifyListeners();
-    });
+    }));
 
-    // 记住播放进度
     var t = DateTime.now();
-    audio.positionStream.listen((event) {
+    _subscriptions.add(audio.positionStream.listen((event) {
       var n = DateTime.now();
       if (t.add(const Duration(seconds: 1)).isBefore(n)) {
         _cachePosition();
         t = n;
       }
-    });
+    }));
   }
 
-  // 销毁
   void dispose() {
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
     audio.dispose();
     _timer?.cancel();
+    autoClose.cancel();
   }
 
   // 播放

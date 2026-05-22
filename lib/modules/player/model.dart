@@ -8,15 +8,14 @@ import "package:bobomusic/modules/player/const.dart";
 import "package:bobomusic/origin_sdk/origin_types.dart";
 
 class PlayerModel extends ChangeNotifier {
-  // 播放器实例
   AudioPlayer? get _audio => _playerHandler?.player.audio;
   Duration? get duration => _audio?.duration;
-  // 后台播放实例
   AudioHandler? _playerService;
   AudioPlayerHandler? _playerHandler;
-  // 当前歌曲
+  final List<StreamSubscription?> _subscriptions = [];
+
   MusicItem? get current => _playerHandler?.current;
-  // 添加 setter 方法
+
   set current(MusicItem? value) {
     if (_playerHandler != null) {
       _playerHandler!.current = value;
@@ -24,19 +23,16 @@ class PlayerModel extends ChangeNotifier {
     }
   }
 
-  // 歌曲是否加载
   bool get isLoading => _playerHandler?.player.isLoading ?? false;
-  // 是否正在播放
+
   bool get isPlaying {
     return _playerHandler?.player.isPlaying ?? false;
   }
 
-  // 待播放列表
   List<MusicItem> get playerList {
     return _playerHandler?.player.playerList ?? [];
   }
 
-  // 播放模式
   PlayerMode get playerMode {
     return _playerHandler?.player.playerMode ?? PlayerMode.listLoop;
   }
@@ -45,13 +41,20 @@ class PlayerModel extends ChangeNotifier {
     required AudioPlayerHandler playerHandler,
     required AudioHandler playerService,
   }) async {
-    // 后台服务
     _playerHandler = playerHandler;
     _playerService = playerService;
     await playerHandler.player.init();
-    _audio?.playerStateStream.listen((event) {
+    _subscriptions.add(_audio?.playerStateStream.listen((event) {
       notifyListeners();
-    });
+    }));
+  }
+
+  @override
+  void dispose() {
+    for (var sub in _subscriptions) {
+      sub?.cancel();
+    }
+    super.dispose();
   }
 
   // 播放
